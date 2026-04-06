@@ -214,7 +214,7 @@ const authMiddleware = (request, response, next) => {
 };
 
 app.get("/", (req, res) => {
-  res.send("EcoAI Backend is running 🚀");
+  res.send("HR Backend is running 🚀");
 });
 
 // user create avuthunnadu
