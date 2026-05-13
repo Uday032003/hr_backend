@@ -771,6 +771,17 @@ app.get("/attendance/break-out", authMiddleware, async (request, response) => {
       WHERE u.id = ${userId}
     `;
     const userDetails = userDetailsQuery[0];
+    const tasks = await sql`
+      SELECT
+      at.id AS taskid, 
+      at.task AS task
+      FROM attendance_tasks at
+      JOIN attendance a ON a.id = at.attendanceid
+      WHERE 
+      a.userid = ${userId}
+      AND a.login_time::date = (${dateToday}::timestamptz AT TIME ZONE 'Asia/Kolkata')::date
+      ORDER BY at.created_at ASC;
+    `;
     await sendTelegramMessage(`
     🟡 <b>BREAK</b>
     👤 ${userDetails.name}
@@ -784,6 +795,10 @@ app.get("/attendance/break-out", authMiddleware, async (request, response) => {
       second: "2-digit",
       hour12: false,
     })}
+    ✅ Tasks Done:
+        ${tasks?.length ? tasks.map((taskObj, index) => `
+        ${index + 1}. ${taskObj.task}
+        `).join("") : "No tasks updated"}
     `);
     return response.status(200).json({
       message: "Paused successfully",
