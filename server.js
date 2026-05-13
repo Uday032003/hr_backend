@@ -759,6 +759,32 @@ app.get("/attendance/break-out", authMiddleware, async (request, response) => {
     FROM attendance
     WHERE id = ${user.id}`;
     const userBreakOut = userBreakOutResult[0];
+    const userDetailsQuery = await sql`
+    SELECT u.name AS name,
+      u.mail AS mail,
+      u.job_type AS job_type,
+      a.attendance_type AS attendance_type
+      FROM users u
+      JOIN attendance a 
+      ON u.id = a.userid 
+      AND a.login_time::date = (${dateToday}::timestamptz AT TIME ZONE 'Asia/Kolkata')::date
+      WHERE u.id = ${userId}
+    `;
+    const userDetails = userDetailsQuery[0];
+    await sendTelegramMessage(`
+    🟡 <b>BREAK</b>
+    👤 ${userDetails.name}
+    🕒 ${new Date().toLocaleString("en-IN", {
+      timeZone: "Asia/Kolkata",
+      day: "numeric",
+      month: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    })}
+    `);
     return response.status(200).json({
       message: "Paused successfully",
       userBreakOutTime: userBreakOut.break_out_time,
@@ -800,6 +826,32 @@ app.get("/attendance/break-in", authMiddleware, async (request, response) => {
     FROM attendance
     WHERE id = ${user.id}`;
     const userBreakIn = userBreakInResult[0];
+    const userDetailsQuery = await sql`
+    SELECT u.name AS name,
+      u.mail AS mail,
+      u.job_type AS job_type,
+      a.attendance_type AS attendance_type
+      FROM users u
+      JOIN attendance a 
+      ON u.id = a.userid 
+      AND a.login_time::date = (${dateToday}::timestamptz AT TIME ZONE 'Asia/Kolkata')::date
+      WHERE u.id = ${userId}
+    `;
+    const userDetails = userDetailsQuery[0];
+    await sendTelegramMessage(`
+    🔵 <b>RESUME WORK</b>
+    👤 ${userDetails.name}
+    🕒 ${new Date().toLocaleString("en-IN", {
+      timeZone: "Asia/Kolkata",
+      day: "numeric",
+      month: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    })}
+    `);
     return response.status(200).json({
       message: "Resumed successfully",
       userBreakInTime: userBreakIn.break_in_time,
@@ -875,13 +927,21 @@ app.post("/attendance/logout", authMiddleware, async (request, response) => {
       WHERE u.id = ${userId}
     `;
     const userDetails = userDetailsQuery[0];
+    const tasks = await sql`
+      SELECT
+      at.id AS taskid, 
+      at.task AS task
+      FROM attendance_tasks at
+      JOIN attendance a ON a.id = at.attendanceid
+      WHERE 
+      a.userid = ${userId}
+      AND a.login_time::date = (${dateToday}::timestamptz AT TIME ZONE 'Asia/Kolkata')::date
+      ORDER BY at.created_at ASC;
+    `;
     await sendTelegramMessage(`
     🟠 <b>LOGOUT ALERT</b>
 
     👤 ${userDetails.name}
-    ✉️ ${userDetails.mail}
-    💼 ${userDetails.job_type}
-    📍 ${userDetails.attendance_type}
     🕒 ${new Date().toLocaleString("en-IN", {
       timeZone: "Asia/Kolkata",
       day: "numeric",
@@ -892,6 +952,10 @@ app.post("/attendance/logout", authMiddleware, async (request, response) => {
       second: "2-digit",
       hour12: false,
     })}
+    ✅ Tasks Done:
+        ${tasks?.length ? tasks.map((taskObj, index) => `
+        ${index + 1}. ${taskObj.task}
+        `).join("") : "No tasks updated"}
      <i>Worked Duration: ${getWorkingDuration(userDetails.login_time, userDetails.logout_time, userDetails.break_out_time, userDetails.break_in_time, new Date())}</i>
     `);
     console.log("LOGIN DB:", userDetails.login_time);
